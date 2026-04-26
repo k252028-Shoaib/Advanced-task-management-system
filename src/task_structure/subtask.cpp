@@ -1,4 +1,4 @@
-#include "subtask.hpp"
+#include "task_structure/subtask.hpp"
 
 subtask::subtask(int id, std::string n, std::string desc,  std::chrono::minutes estimated_duration_minutes) 
     : subtask_id(id), subtask_name(n), subtask_description(desc), completed(false), 

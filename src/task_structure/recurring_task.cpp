@@ -1,17 +1,8 @@
-#include "recurring_task.hpp"
-#include "subtask.hpp"
+#include "task_structure/recurring_task.hpp"
+#include "task_structure/subtask.hpp"
 
-recurring_task::recurring_task(int id, 
-                               std::string name,
-                               date start = date(0,0,0,1,1,1970), 
-                               date due = date(0,0,0,1,1,1970),
-                               date reminder = date(0,0,0,1,1,1970), 
-                               int priority = 0, 
-                               std::string description = "", 
-                               int category_id = 0,
-                               std::chrono::minutes interval, 
-                               int occurrences = -1, 
-                               date end = date(0,0,0,1,1,1970))
+recurring_task::recurring_task(int id, std::string name,date start, date due,date reminder, int priority, std::string description, 
+                               int category_id ,std::chrono::minutes interval, int occurrences, date end)
     : task(id, name, start, due, reminder, priority, description, category_id),
       recurrence_interval(interval), occurrences_left(occurrences), end_date(end) 
 {

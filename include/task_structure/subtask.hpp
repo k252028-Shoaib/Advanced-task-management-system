@@ -6,7 +6,7 @@ class subtask;
 
 class subtask{
     private:
-        const int subtask_id;
+        int subtask_id;
         std::string subtask_name;
         std::string subtask_description;
         bool completed;

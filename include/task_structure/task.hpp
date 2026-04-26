@@ -7,7 +7,7 @@ class subtask;
 
 class task{
     protected:
-        const int task_id;
+        int task_id;
         std::string task_name;
         std::string task_description;
         int priority_level;
