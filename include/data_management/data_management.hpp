@@ -36,7 +36,7 @@ private:
 
 public:
     data_management();
-    ~data_management() = default;
+    ~data_management();
 
     // --- Task Management ---
     // We return a raw pointer so the GUI can view/edit, 

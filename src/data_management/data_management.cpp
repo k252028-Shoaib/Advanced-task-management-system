@@ -1,6 +1,7 @@
-#include "../../include/data_management/data_management.hpp"
-#include "../../include/task_structure/task.hpp"
-#include "../../include/task_structure/subtask.hpp"
+#include "data_management/data_management.hpp"
+#include "task_structure/task.hpp"
+#include "task_structure/subtask.hpp"
+#include <filesystem>
 #include <algorithm>
 #include <fstream>
 #include <sstream>
@@ -8,6 +9,11 @@
 data_management::data_management() : next_task_id(1), next_category_id(1) {
     // Initialize with a "General" category
     add_category("General", "#FFFFFF");
+    load_from_file();
+}
+
+data_management::~data_management() {
+    save_to_file();
 }
 
 // --- Task Management ---
@@ -92,7 +98,8 @@ void data_management::delete_category(int id) {
 
 
 void data_management::save_to_file() {
-    std::ofstream file("database.txt");
+    std::filesystem::path db_path = std::filesystem::current_path() / "database.txt";
+    std::ofstream file(db_path);
     if (!file.is_open()) return;
 
     // 1. Save Categories

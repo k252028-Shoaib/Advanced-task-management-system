@@ -1,5 +1,5 @@
-#include "task.hpp"
-#include "subtask.hpp"
+#include "task_structure/task.hpp"
+#include "task_structure/subtask.hpp"
 #include <vector>
 using namespace std;
 
@@ -71,7 +71,7 @@ bool task::delete_subtask(int id){
 }
 
 bool task::check_all_subtasks_done() const{
-    if (subtasks.empty()) return false; // If no subtasks, it can't trigger auto-complete
+    if (subtasks.empty()) return true; // If there are no subtasks, they are technically "all done"
     
     for (const auto& sub : subtasks) {
         if (!sub.is_complete()) {

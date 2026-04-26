@@ -39,9 +39,11 @@ void date::display_date() const {
               << "Time: " << c.h << ":" << c.min << ":" << c.s << std::endl;
 }
 
+
 void date::update_date() {
     tp = system_clock::now();
 }
+
 
 time_t date::get_time_t() const {
     return system_clock::to_time_t(tp);
