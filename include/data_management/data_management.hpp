@@ -28,8 +28,8 @@ private:
     std::vector<category> categories_arr;
 
     // Internal ID counters
-    int next_task_id;
-    int next_category_id;
+    int next_task_id = 0;
+    int next_category_id = 0;
 
     // Private helper for file I/O
     std::string get_save_path();

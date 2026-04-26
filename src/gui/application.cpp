@@ -1,4 +1,5 @@
 #include "gui/application.hpp"
+#include "gui/IconsFontAwesome6.h"
 #include <iostream>
 #include <stdexcept>
 #include <imgui_impl_glfw.h>
@@ -78,26 +79,26 @@ void Application::init_imgui() {
 void Application::load_fonts() {
     ImGuiIO& io = ImGui::GetIO();
     
-    // 1. Base Font Size (16px scaled)
-    float base_size = 16.0f * scale_factor;
-    float header_size = 20.0f * scale_factor;
+    // Clear any existing fonts to start fresh
+    io.Fonts->Clear();
 
-    // 2. Load Inter-Regular
-    font_regular = io.Fonts->AddFontFromFileTTF("assets/fonts/Inter_24pt-Regular.ttf", base_size);
-
-    // 3. Load Inter-Bold
-    font_bold = io.Fonts->AddFontFromFileTTF("assets/fonts/Inter_24pt-Bold.ttf", header_size);
-
-    // 4. Merge FontAwesome Icons
-    static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_16_FA, 0 };
+    float base_size = 18.0f * scale_factor;
+    
+    // 1. Setup Icon Config
+    static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
     ImFontConfig icons_config;
-    icons_config.MergeMode = true; // Crucial: merges icons into the previous font (font_bold)
+    icons_config.MergeMode = true; 
     icons_config.PixelSnapH = true;
-    icons_config.GlyphMinAdvanceX = base_size;
+    icons_config.GlyphOffset.y = 1.0f * scale_factor; // Better vertical alignment
 
-    font_icons = io.Fonts->AddFontFromFileTTF("assets/fonts/Font Awesome 6 Free-Solid-900.otf", base_size, &icons_config, icons_ranges);
+    // 2. Load Regular Font + Icons
+    font_regular = io.Fonts->AddFontFromFileTTF("assets/fonts/Inter_24pt-Regular.ttf", base_size);
+    io.Fonts->AddFontFromFileTTF("assets/fonts/Font Awesome 6 Free-Solid-900.otf", base_size, &icons_config, icons_ranges);
 
-    // Build the texture atlas
+    // 3. Load Bold Font + Icons
+    font_bold = io.Fonts->AddFontFromFileTTF("assets/fonts/Inter_24pt-Bold.ttf", base_size + 2.0f);
+    io.Fonts->AddFontFromFileTTF("assets/fonts/Font Awesome 6 Free-Solid-900.otf", base_size + 2.0f, &icons_config, icons_ranges);
+
     io.Fonts->Build();
 }
 
@@ -134,16 +135,18 @@ void Application::run() {
         // 2. Render our UI Panels
         render_ui();
         
-        draw_delete_confirmation(); 
+        if (show_details_modal) draw_task_details_modal();
+        if (show_create_modal){ 
+            draw_create_task_modal();
+            ImGui::OpenPopup("Create New Task");
+        }
+        draw_delete_confirmation();
         draw_subtask_warning_modal();
         draw_auto_complete_modal();
-
-        // 3. Render Modals (Overlays)
-        if (show_details_modal) draw_task_details_modal();
-        if (show_create_modal) draw_create_task_modal();
-        render_toasts();
+        
 
         // Rendering
+        render_toasts();
         ImGui::Render();
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
@@ -218,8 +221,8 @@ void Application::draw_sidebar() {
     ImGui::Begin(ICON_FA_LIST " Navigation");
 
     if (ImGui::Button(ICON_FA_PLUS " Create New Task", ImVec2(-1, 40))) {
+        std::cout << "BUTTON CLICKED!" << std::endl;
         show_create_modal = true;
-        ImGui::OpenPopup("Create New Task");
     }
     ImGui::Spacing();
     ImGui::Separator();
@@ -520,51 +523,47 @@ void Application::draw_task_details_modal() {
     }
 }
 
-void Application::draw_create_task_modal(){
+void Application::draw_create_task_modal() {
+    // 1. Calculate validity once at the start of the frame
+    bool date_valid = is_valid_date(d_day, d_mon, d_year);
+    bool name_valid = !task_buffer.name.empty();
+    bool can_create = date_valid && name_valid;
+
+    // 2. Use the boolean to keep the stack balanced
     if (ImGui::BeginPopupModal("Create New Task", &show_create_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
         
         ImGui::InputText("Task Name", &task_buffer.name);
         ImGui::InputTextMultiline("Description", &task_buffer.description);
         ImGui::SliderInt("Priority", &task_buffer.priority, 1, 5);
 
-        // --- DATE INPUT (Manual) ---
         ImGui::TextDisabled("DUE DATE");
         ImGui::SetNextItemWidth(50); ImGui::InputInt("DD", &d_day, 0); ImGui::SameLine();
         ImGui::SetNextItemWidth(50); ImGui::InputInt("MM", &d_mon, 0); ImGui::SameLine();
         ImGui::SetNextItemWidth(70); ImGui::InputInt("YYYY", &d_year, 0);
 
-        // --- RECURRING TOGGLE ---
         ImGui::Separator();
         ImGui::Checkbox("Is Recurring?", &is_recurring_toggle);
-
         if (is_recurring_toggle) {
             ImGui::InputInt("Interval (Mins)", &rec_interval_mins);
-            ImGui::InputInt("Occurrences (-1 = inf)", &rec_occurrences);
-            ImGui::TextDisabled("Note: 1440 mins = 1 day");
+            ImGui::InputInt("Occurrences", &rec_occurrences);
         }
 
         ImGui::Separator();
 
-        if (ImGui::Button("Cancel", ImVec2(120, 0))) { 
-            show_create_modal = false; 
-            ImGui::CloseCurrentPopup(); 
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            show_create_modal = false;
+            ImGui::CloseCurrentPopup();
         }
+
         ImGui::SameLine();
 
-        bool date_valid = is_valid_date(d_day, d_mon, d_year);
-        bool name_valid = !task_buffer.name.empty();
-
-        // Disable button if invalid
-        if (!date_valid || !name_valid) {
-            ImGui::BeginDisabled();
-        }
-
+        // --- FIXED SECTION ---
+        if (!can_create) ImGui::BeginDisabled();
+        
         if (ImGui::Button("Create Task", ImVec2(120, 0))) {
-            // 1. Construct Date
             date due_date(0, 0, 0, d_day, d_mon, d_year);
             task_buffer.due = due_date;
-        
-            // 2. Polymorphic Creation
+
             if (is_recurring_toggle) {
                 recurring_task_members rec_req;
                 static_cast<task_members&>(rec_req) = task_buffer;
@@ -574,19 +573,20 @@ void Application::draw_create_task_modal(){
             } else {
                 db.add_task(task_buffer);
             }
-        
-            // 3. Reset and Close
-            task_buffer = task_members();
-            is_recurring_toggle = false;
+
+            task_buffer = task_members(); // This changes name_valid, but we use 'can_create' below
             show_create_modal = false;
             ImGui::CloseCurrentPopup();
         }
 
-        if (!date_valid || !name_valid) {
-            ImGui::EndDisabled();
-            ImGui::SameLine();
+        if (!can_create) ImGui::EndDisabled(); 
+        // -----------------------
+
+        if (!can_create) {
             ImGui::TextColored(ImVec4(1, 0, 0, 1), "Check Name/Date!");
         }
+
+        ImGui::EndPopup();
     }
 }
 

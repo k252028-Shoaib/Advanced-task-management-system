@@ -36,3 +36,5 @@ target_link_libraries(program PRIVATE
     gdi32
     imm32
 )
+
+add_compile_options("$<$<CXX_COMPILER_ID:GNU>:-finput-charset=UTF-8>")

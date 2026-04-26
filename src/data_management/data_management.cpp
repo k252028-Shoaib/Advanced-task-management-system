@@ -6,7 +6,7 @@
 #include <fstream>
 #include <sstream>
 
-data_management::data_management() : next_task_id(1), next_category_id(1) {
+data_management::data_management(){
     // Initialize with a "General" category
     add_category("General", "#FFFFFF");
     load_from_file();
