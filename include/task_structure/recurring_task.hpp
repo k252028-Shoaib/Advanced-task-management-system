@@ -21,7 +21,7 @@ public:
                    int priority = 0, 
                    std::string description = "", 
                    int category_id = 0,
-                   std::chrono::minutes interval, 
+                   std::chrono::minutes interval = std::chrono::minutes(0), 
                    int occurrences = -1, 
                    date end = date(0,0,0,1,1,1970));
 

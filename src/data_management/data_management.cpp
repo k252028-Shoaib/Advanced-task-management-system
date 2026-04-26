@@ -57,10 +57,13 @@ task* data_management::add_recurring_task(const recurring_task_members& req) {
 }
 
 bool data_management::delete_task(int id) {
-    task* temp = find_task_by_id(id);
-    if(temp == nullptr) return false;
+    auto it = std::remove_if(tasks_arr.begin(), tasks_arr.end(), [id](const std::unique_ptr<task>& t) {
+        return t->get_id() == id;
+    });
 
-    std::erase(tasks_arr, temp);
+    if (it == tasks_arr.end()) return false;
+
+    tasks_arr.erase(it, tasks_arr.end());
     return true;
 }
 
@@ -208,14 +211,26 @@ void data_management::load_from_file() {
                 std::getline(ss, s_end, '|');
                 std::getline(ss, b_end, '|');
 
-                auto rec = std::make_unique<recurring_task>(tid, s_name, std::chrono::minutes(std::stoi(s_int)));
+                auto rec = std::make_unique<recurring_task>(
+                    tid, 
+                    s_name, 
+                    date(0,0,0,1,1,1970), // start
+                    date(0,0,0,1,1,1970), // due
+                    date(0,0,0,1,1,1970), // reminder
+                    0,                    // priority
+                    "",                   // description
+                    0,                    // category_id
+                    std::chrono::minutes(std::stoi(s_int))
+                );
+
                 rec->set_occurrences(std::stoi(s_occ));
                 if (b_end == "1") {
                     date ed; ed.from_time_t(std::stoll(s_end));
                     rec->set_end_date(ed);
                 }
                 t = std::move(rec);
-            } else {
+            } 
+            else {
                 t = std::make_unique<task>(tid, s_name);
             }
 
