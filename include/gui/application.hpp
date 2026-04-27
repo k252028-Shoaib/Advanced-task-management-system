@@ -50,7 +50,6 @@ private:
     ImVec4 hex_to_imvec4(const std::string& hex);
     void apply_theme(bool dark);
     std::string new_subtask_name_buffer = "";
-    bool show_auto_complete_modal = false;
     task* task_to_auto_complete = nullptr;
     
 
@@ -67,12 +66,15 @@ private:
 
     // --- UI State (The "Memory") ---
     task* selected_task = nullptr;       // Pointer to task currently being viewed
-    bool show_details_modal = false;
-    bool show_create_modal = false;
     bool is_editing_mode = false;        // Toggles between View/Edit in the modal
     bool use_dark_theme = true;
-    bool show_subtask_warning = false;
     std::string subtask_warning_name = "";
+
+    // Modal Triggers
+    bool trigger_create_modal = false;
+    bool trigger_details_modal = false;
+    bool trigger_subtask_warning = false;
+    bool trigger_delete_modal = false;
 
     // --- Filter Logic ---
     enum class FilterType { ALL, OVERDUE, TODAY, UPCOMING, COMPLETED };

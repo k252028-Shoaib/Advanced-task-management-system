@@ -70,6 +70,14 @@ bool task::delete_subtask(int id){
     return true;
 }
 
+void task::load_subtask(int id, std::string name, std::string desc, std::chrono::minutes estimated, bool is_comp) {
+    // task is a friend class of subtask, so we can construct it directly
+    subtask sub(id, name, desc, estimated);
+    sub.completed = is_comp;
+    if (is_comp) sub.completed_at.update_date();
+    subtasks.push_back(sub);
+}
+
 bool task::check_all_subtasks_done() const{
     if (subtasks.empty()) return true; // If there are no subtasks, they are technically "all done"
     

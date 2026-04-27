@@ -2,6 +2,7 @@
 #include "gui/IconsFontAwesome6.h"
 #include <iostream>
 #include <stdexcept>
+#include <algorithm>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include "task_structure/subtask.hpp"
@@ -132,18 +133,20 @@ void Application::run() {
         // 1. Setup the Docking Root
         draw_dockspace();
 
-        // 2. Render our UI Panels
+        // 2. Render our UI Panels (This is where the buttons get clicked and set our triggers to true)
         render_ui();
         
-        if (show_details_modal) draw_task_details_modal();
-        if (show_create_modal){ 
-            draw_create_task_modal();
-            ImGui::OpenPopup("Create New Task");
-        }
+        // 3. CHECK TRIGGERS: Open the popups exactly ONCE if a button was clicked
+        if (trigger_details_modal) { ImGui::OpenPopup("Task Details"); trigger_details_modal = false; }
+        if (trigger_create_modal) { ImGui::OpenPopup("Create New Task"); trigger_create_modal = false; }
+        if (trigger_delete_modal) { ImGui::OpenPopup("Delete Task?"); trigger_delete_modal = false; }
+        if (trigger_subtask_warning) { ImGui::OpenPopup("Subtask Warning"); trigger_subtask_warning = false; }
+
+        // 4. Draw the Modals (These only actually draw anything if OpenPopup was called above)
+        draw_task_details_modal();
+        draw_create_task_modal();
         draw_delete_confirmation();
         draw_subtask_warning_modal();
-        draw_auto_complete_modal();
-        
 
         // Rendering
         render_toasts();
@@ -221,8 +224,15 @@ void Application::draw_sidebar() {
     ImGui::Begin(ICON_FA_LIST " Navigation");
 
     if (ImGui::Button(ICON_FA_PLUS " Create New Task", ImVec2(-1, 40))) {
-        std::cout << "BUTTON CLICKED!" << std::endl;
-        show_create_modal = true;
+        trigger_create_modal = true; // Set trigger, don't call OpenPopup here
+        
+        // Clean buffers and prepopulate today's date
+        task_buffer = task_members();
+        auto today = std::chrono::year_month_day{std::chrono::floor<std::chrono::days>(std::chrono::system_clock::now())};
+        d_day = static_cast<unsigned>(today.day());
+        d_mon = static_cast<unsigned>(today.month());
+        d_year = static_cast<int>(today.year());
+        is_recurring_toggle = false;
     }
     ImGui::Spacing();
     ImGui::Separator();
@@ -399,20 +409,19 @@ void Application::draw_task_list() {
                     add_toast("Task completed!");
                 } else {
                     subtask_warning_name = t->get_name();
-                    show_subtask_warning = true;
-                    ImGui::OpenPopup("Subtask Warning");
+                    trigger_subtask_warning = true; // Use the new trigger!
                 }
             }
             ImGui::SameLine();
             if (ImGui::SmallButton(ICON_FA_EYE)) {
                 selected_task = t;
-                show_details_modal = true;
+                trigger_details_modal = true; // Use the new trigger!
                 is_editing_mode = false;
             }
             ImGui::SameLine();
             if (ImGui::SmallButton(ICON_FA_TRASH_CAN)) {
                 task_to_delete = t->get_id();
-                ImGui::OpenPopup("Delete Task?");
+                trigger_delete_modal = true; // Use the new trigger!
             }
 
             ImGui::PopID();
@@ -459,7 +468,7 @@ void Application::draw_task_details_modal() {
     if (!selected_task) return;
 
     ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
-    if (ImGui::BeginPopupModal("Task Details", &show_details_modal)) {
+    if (ImGui::BeginPopupModal("Task Details", nullptr)) {
         
         // --- Header ---
         ImGui::PushFont(font_bold);
@@ -494,7 +503,6 @@ void Application::draw_task_details_modal() {
                     auto result = selected_task->complete_subtask(sub.get_id());
                     if (result == task::SubtaskResult::ALL_SUBTASKS_COMPLETED) {
                         task_to_auto_complete = selected_task;
-                        show_auto_complete_modal = true;
                         ImGui::OpenPopup("Auto-Complete?");
                     }
                 } 
@@ -515,10 +523,11 @@ void Application::draw_task_details_modal() {
 
         ImGui::Separator();
         if (ImGui::Button("Close", ImVec2(120, 0))) {
-            show_details_modal = false;
             selected_task = nullptr;
             ImGui::CloseCurrentPopup();
         }
+        draw_auto_complete_modal(); 
+
         ImGui::EndPopup();
     }
 }
@@ -529,8 +538,8 @@ void Application::draw_create_task_modal() {
     bool name_valid = !task_buffer.name.empty();
     bool can_create = date_valid && name_valid;
 
-    // 2. Use the boolean to keep the stack balanced
-    if (ImGui::BeginPopupModal("Create New Task", &show_create_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
+    // Notice we pass 'nullptr' here now instead of '&show_create_modal'
+    if (ImGui::BeginPopupModal("Create New Task", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         
         ImGui::InputText("Task Name", &task_buffer.name);
         ImGui::InputTextMultiline("Description", &task_buffer.description);
@@ -551,13 +560,12 @@ void Application::draw_create_task_modal() {
         ImGui::Separator();
 
         if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-            show_create_modal = false;
+            // We removed the boolean toggle, just tell ImGui to close it
             ImGui::CloseCurrentPopup();
         }
 
         ImGui::SameLine();
 
-        // --- FIXED SECTION ---
         if (!can_create) ImGui::BeginDisabled();
         
         if (ImGui::Button("Create Task", ImVec2(120, 0))) {
@@ -574,13 +582,12 @@ void Application::draw_create_task_modal() {
                 db.add_task(task_buffer);
             }
 
-            task_buffer = task_members(); // This changes name_valid, but we use 'can_create' below
-            show_create_modal = false;
+            task_buffer = task_members(); 
+            // Tell ImGui to close it
             ImGui::CloseCurrentPopup();
         }
 
         if (!can_create) ImGui::EndDisabled(); 
-        // -----------------------
 
         if (!can_create) {
             ImGui::TextColored(ImVec4(1, 0, 0, 1), "Check Name/Date!");
@@ -591,14 +598,14 @@ void Application::draw_create_task_modal() {
 }
 
 void Application::draw_subtask_warning_modal() {
-    if (ImGui::BeginPopupModal("Subtask Warning", &show_subtask_warning, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ImGui::BeginPopupModal("Subtask Warning", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::TextColored(ImVec4(1, 0.5f, 0, 1), ICON_FA_TRIANGLE_EXCLAMATION " Action Required");
         ImGui::Text("Cannot complete task: \"%s\"", subtask_warning_name.c_str());
         ImGui::Text("Please finish or delete all subtasks first.");
         ImGui::Separator();
 
         if (ImGui::Button("OK", ImVec2(120, 0))) {
-            show_subtask_warning = false;
+            // We removed the boolean toggle, just tell ImGui to close it
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
@@ -606,21 +613,22 @@ void Application::draw_subtask_warning_modal() {
 }
 
 void Application::draw_auto_complete_modal() {
-    if (ImGui::BeginPopupModal("Auto-Complete?", &show_auto_complete_modal, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ImGui::BeginPopupModal("Auto-Complete?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("All subtasks for \"%s\" are finished.", task_to_auto_complete->get_name().c_str());
         ImGui::Text("Would you like to mark the main task as complete?");
         ImGui::Separator();
 
         if (ImGui::Button("No", ImVec2(120, 0))) {
-            show_auto_complete_modal = false;
+            // Just tell ImGui to close the popup
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
         if (ImGui::Button("Yes, Complete", ImVec2(120, 0))) {
             task_to_auto_complete->complete_task();
             add_toast("Task completed!"); // Trigger toast
-            show_auto_complete_modal = false;
-            show_details_modal = false; // Close details too
+            
+            // Just tell ImGui to close the popup. 
+            // (The user can close the background Details panel themselves)
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();

@@ -43,6 +43,7 @@ class task{
         bool delete_subtask(int id); 
         bool uncomplete_subtask(int id);
         bool check_all_subtasks_done() const;
+        void load_subtask(int id, std::string name, std::string desc, std::chrono::minutes estimated, bool is_comp);
         const std::vector<subtask>& get_subtasks() const { return subtasks; }
 
         virtual bool complete_task();

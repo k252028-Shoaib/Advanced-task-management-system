@@ -160,6 +160,7 @@ void data_management::load_from_file() {
 
     tasks_arr.clear();
     categories_arr.clear();
+    bool has_general = false;
     std::string line;
 
     // 1. Load Categories
@@ -175,9 +176,16 @@ void data_management::load_from_file() {
 
                 int id = std::stoi(s_id);
                 categories_arr.emplace_back(id, s_name, s_color);
+                if (id == 1) has_general = true; // Track if General exists
                 if (id >= next_category_id) next_category_id = id + 1;
             }
         }
+    }
+
+    // Safety fallback: If file was empty or missing "General", inject it safely
+    if (!has_general) {
+        categories_arr.insert(categories_arr.begin(), category(1, "General", "#FFFFFF"));
+        if (next_category_id <= 1) next_category_id = 2;
     }
 
     // 2. Load Tasks
@@ -256,8 +264,7 @@ void data_management::load_from_file() {
                     std::getline(sub_ss, sub_desc, '|');
                     std::getline(sub_ss, sub_edm, '|');
 
-                    t->add_subtask(sub_name, sub_desc, std::chrono::minutes(std::stoi(sub_edm)));
-                    if (sub_stat == "1") t->complete_subtask(std::stoi(sub_id));
+                    t->load_subtask(std::stoi(sub_id), sub_name, sub_desc, std::chrono::minutes(std::stoi(sub_edm)), sub_stat == "1");
                 }
             }
             std::getline(file, line); // Consume [END_TASK]
