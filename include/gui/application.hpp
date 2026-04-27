@@ -88,7 +88,8 @@ private:
     task_members task_buffer; // a struct in data_management.hpp
 
     // Date buffers
-    int d_day = 1, d_mon = 1, d_year = 2026;
+    int d_day = 1, d_mon = 1, d_year = 2026; // Due Date
+    int e_day = 1, e_mon = 1, e_year = 2026; // End Date
     bool is_recurring_toggle = false;
 
     // Recurring buffers

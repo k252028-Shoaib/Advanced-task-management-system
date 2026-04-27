@@ -229,9 +229,15 @@ void Application::draw_sidebar() {
         // Clean buffers and prepopulate today's date
         task_buffer = task_members();
         auto today = std::chrono::year_month_day{std::chrono::floor<std::chrono::days>(std::chrono::system_clock::now())};
+        
         d_day = static_cast<unsigned>(today.day());
         d_mon = static_cast<unsigned>(today.month());
         d_year = static_cast<int>(today.year());
+
+        e_day = d_day;
+        e_mon = d_mon;
+        e_year = d_year;
+
         is_recurring_toggle = false;
     }
     ImGui::Spacing();
@@ -489,7 +495,14 @@ void Application::draw_task_details_modal() {
         ImGui::PopFont();
         
         ImGui::SameLine(ImGui::GetWindowWidth() - 120);
-        ImGui::Checkbox("Edit Mode", &is_editing_mode);
+        // Lock editing if the task is complete
+        if (selected_task->is_complete()) {
+            is_editing_mode = false; // Force it off
+            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Read-Only");
+        } 
+        else {
+            ImGui::Checkbox("Edit Mode", &is_editing_mode);
+        }
         ImGui::Separator();
 
         // --- Core Info ---
@@ -597,10 +610,32 @@ void Application::draw_create_task_modal() {
         }
 
         ImGui::Separator();
+        
+        // --- Recurring Task Logic ---
+        static bool has_end_date = false;
+        
         ImGui::Checkbox("Is Recurring?", &is_recurring_toggle);
         if (is_recurring_toggle) {
             ImGui::InputInt("Interval (Mins)", &rec_interval_mins);
+            
             ImGui::InputInt("Occurrences", &rec_occurrences);
+            // Clamp occurrences so it cannot go below -1
+            if (rec_occurrences < -1) rec_occurrences = -1; 
+            ImGui::TextDisabled("Hint: -1 means infinite occurrences.");
+
+            ImGui::Spacing();
+            ImGui::Checkbox("Has End Date?", &has_end_date);
+            if (has_end_date) {
+                ImGui::SetNextItemWidth(50); ImGui::InputInt("End DD", &e_day, 0); ImGui::SameLine();
+                ImGui::SetNextItemWidth(50); ImGui::InputInt("End MM", &e_mon, 0); ImGui::SameLine();
+                ImGui::SetNextItemWidth(70); ImGui::InputInt("End YYYY", &e_year, 0);
+                
+                // Extra validation: ensure the end date is valid before creating!
+                if (!is_valid_date(e_day, e_mon, e_year)) {
+                    can_create = false;
+                    ImGui::TextColored(ImVec4(1, 0, 0, 1), "Invalid End Date!");
+                }
+            }
         }
 
         ImGui::Separator();
@@ -617,7 +652,8 @@ void Application::draw_create_task_modal() {
             // Apply the date ONLY if the user checked the box
             if (has_due_date) {
                 task_buffer.due = date(0, 0, 0, d_day, d_mon, d_year);
-            } else {
+            } 
+            else {
                 task_buffer.due = date(0,0,0,1,1,1970); // 1970 is your app's "No Date" marker
             }
 
@@ -629,8 +665,17 @@ void Application::draw_create_task_modal() {
                 static_cast<task_members&>(rec_req) = task_buffer;
                 rec_req.interval = std::chrono::minutes(rec_interval_mins);
                 rec_req.occurrences = rec_occurrences;
+
+                if (has_end_date) {
+                    rec_req.end_date = date(0, 0, 0, e_day, e_mon, e_year);
+                } 
+                else {
+                    rec_req.end_date = date(0,0,0,1,1,1970);
+                }
+
                 db.add_recurring_task(rec_req);
-            } else {
+            } 
+            else {
                 db.add_task(task_buffer);
             }
 
