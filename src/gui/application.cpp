@@ -403,25 +403,38 @@ void Application::draw_task_list() {
             }
 
             // --- Column 4: Actions ---
-            ImGui::TableSetColumnIndex(4);
-            if (ImGui::SmallButton(ICON_FA_CHECK)) {
-                if (t->complete_task()) {
-                    add_toast("Task completed!");
-                } else {
-                    subtask_warning_name = t->get_name();
-                    trigger_subtask_warning = true; // Use the new trigger!
+             ImGui::TableSetColumnIndex(4);
+            
+            // Toggle between Complete and Uncomplete
+            if (t->is_complete()) {
+                // If it's already complete, show an Undo button
+                if (ImGui::SmallButton(ICON_FA_ARROW_ROTATE_LEFT)) {
+                    t->uncomplete_task();
+                    add_toast("Task uncompleted.");
+                }
+            } 
+            else {
+                // If it's NOT complete, show the Check button
+                if (ImGui::SmallButton(ICON_FA_CHECK)) {
+                    if (t->complete_task()) {
+                        add_toast("Task completed!");
+                    } else {
+                        subtask_warning_name = t->get_name();
+                        trigger_subtask_warning = true;
+                    }
                 }
             }
+
             ImGui::SameLine();
             if (ImGui::SmallButton(ICON_FA_EYE)) {
                 selected_task = t;
-                trigger_details_modal = true; // Use the new trigger!
+                trigger_details_modal = true;
                 is_editing_mode = false;
             }
             ImGui::SameLine();
             if (ImGui::SmallButton(ICON_FA_TRASH_CAN)) {
                 task_to_delete = t->get_id();
-                trigger_delete_modal = true; // Use the new trigger!
+                trigger_delete_modal = true;
             }
 
             ImGui::PopID();
@@ -491,7 +504,15 @@ void Application::draw_task_details_modal() {
         }
 
         // --- Subtask Section ---
-        ImGui::Spacing();
+       ImGui::Spacing();
+        
+        // --- NEW: Show Completed Date ---
+        if (selected_task->is_complete()) {
+            std::stringstream ss;
+            ss << selected_task->get_completed_at(); // Uses your overloaded << operator
+            ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), ICON_FA_CHECK_DOUBLE " Completed on: %s", ss.str().c_str());
+        }
+
         ImGui::TextDisabled("SUBTASKS");
         ImGui::Separator();
 
@@ -510,18 +531,20 @@ void Application::draw_task_details_modal() {
             }
         }
 
-        // Add New Subtask Input
-        ImGui::Spacing();
-        ImGui::InputText(ICON_FA_PLUS " New Subtask", &new_subtask_name_buffer);
-        ImGui::SameLine();
-        if (ImGui::Button("Add")) {
-            if (!new_subtask_name_buffer.empty()) {
-                selected_task->add_subtask(new_subtask_name_buffer, "", std::chrono::minutes(0));
-                new_subtask_name_buffer = ""; // Clear buffer
+        // --- NEW: Disable adding subtasks if task is complete ---
+        if (!selected_task->is_complete()) {
+            ImGui::Spacing();
+            ImGui::InputText(ICON_FA_PLUS " New Subtask", &new_subtask_name_buffer);
+            ImGui::SameLine();
+            if (ImGui::Button("Add")) {
+                if (!new_subtask_name_buffer.empty()) {
+                    selected_task->add_subtask(new_subtask_name_buffer, "", std::chrono::minutes(0));
+                    new_subtask_name_buffer = ""; 
+                }
             }
         }
-
         ImGui::Separator();
+
         if (ImGui::Button("Close", ImVec2(120, 0))) {
             selected_task = nullptr;
             ImGui::CloseCurrentPopup();
@@ -533,22 +556,45 @@ void Application::draw_task_details_modal() {
 }
 
 void Application::draw_create_task_modal() {
-    // 1. Calculate validity once at the start of the frame
-    bool date_valid = is_valid_date(d_day, d_mon, d_year);
+    // We use a static variable for the toggle so it remembers your choice
+    static bool has_due_date = false; 
+    
+    bool date_valid = !has_due_date || is_valid_date(d_day, d_mon, d_year);
     bool name_valid = !task_buffer.name.empty();
     bool can_create = date_valid && name_valid;
 
-    // Notice we pass 'nullptr' here now instead of '&show_create_modal'
     if (ImGui::BeginPopupModal("Create New Task", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         
         ImGui::InputText("Task Name", &task_buffer.name);
         ImGui::InputTextMultiline("Description", &task_buffer.description);
         ImGui::SliderInt("Priority", &task_buffer.priority, 1, 5);
 
-        ImGui::TextDisabled("DUE DATE");
-        ImGui::SetNextItemWidth(50); ImGui::InputInt("DD", &d_day, 0); ImGui::SameLine();
-        ImGui::SetNextItemWidth(50); ImGui::InputInt("MM", &d_mon, 0); ImGui::SameLine();
-        ImGui::SetNextItemWidth(70); ImGui::InputInt("YYYY", &d_year, 0);
+        // --- Category Selection ---
+        std::string preview_name = "General";
+        for (const auto& c : db.get_categories()) {
+            if (c.id == task_buffer.category_id) preview_name = c.name;
+        }
+        
+        if (ImGui::BeginCombo("Category", preview_name.c_str())) {
+            for (const auto& c : db.get_categories()) {
+                bool is_selected = (task_buffer.category_id == c.id);
+                if (ImGui::Selectable(c.name.c_str(), is_selected)) {
+                    task_buffer.category_id = c.id; // Assign the category!
+                }
+                if (is_selected) ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+
+        ImGui::Separator();
+
+        // --- Optional Due Date ---
+        ImGui::Checkbox("Has Due Date?", &has_due_date);
+        if (has_due_date) {
+            ImGui::SetNextItemWidth(50); ImGui::InputInt("DD", &d_day, 0); ImGui::SameLine();
+            ImGui::SetNextItemWidth(50); ImGui::InputInt("MM", &d_mon, 0); ImGui::SameLine();
+            ImGui::SetNextItemWidth(70); ImGui::InputInt("YYYY", &d_year, 0);
+        }
 
         ImGui::Separator();
         ImGui::Checkbox("Is Recurring?", &is_recurring_toggle);
@@ -560,7 +606,6 @@ void Application::draw_create_task_modal() {
         ImGui::Separator();
 
         if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-            // We removed the boolean toggle, just tell ImGui to close it
             ImGui::CloseCurrentPopup();
         }
 
@@ -569,8 +614,15 @@ void Application::draw_create_task_modal() {
         if (!can_create) ImGui::BeginDisabled();
         
         if (ImGui::Button("Create Task", ImVec2(120, 0))) {
-            date due_date(0, 0, 0, d_day, d_mon, d_year);
-            task_buffer.due = due_date;
+            // Apply the date ONLY if the user checked the box
+            if (has_due_date) {
+                task_buffer.due = date(0, 0, 0, d_day, d_mon, d_year);
+            } else {
+                task_buffer.due = date(0,0,0,1,1,1970); // 1970 is your app's "No Date" marker
+            }
+
+            // If category wasn't picked, default to General (ID 1)
+            if (task_buffer.category_id == 0) task_buffer.category_id = 1;
 
             if (is_recurring_toggle) {
                 recurring_task_members rec_req;
@@ -583,15 +635,12 @@ void Application::draw_create_task_modal() {
             }
 
             task_buffer = task_members(); 
-            // Tell ImGui to close it
             ImGui::CloseCurrentPopup();
         }
 
         if (!can_create) ImGui::EndDisabled(); 
 
-        if (!can_create) {
-            ImGui::TextColored(ImVec4(1, 0, 0, 1), "Check Name/Date!");
-        }
+        if (!can_create) ImGui::TextColored(ImVec4(1, 0, 0, 1), "Check Name/Date!");
 
         ImGui::EndPopup();
     }

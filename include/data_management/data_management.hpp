@@ -29,7 +29,7 @@ private:
 
     // Internal ID counters
     int next_task_id = 0;
-    int next_category_id = 0;
+    int next_category_id = 1;
 
     // Private helper for file I/O
     std::string get_save_path();

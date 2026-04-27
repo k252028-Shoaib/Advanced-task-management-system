@@ -57,6 +57,7 @@ class task{
         int get_category_id()const{return category_id;}
         int get_priority() const{return priority_level;}
         int get_status() const{return is_completed;}
+        date get_completed_at() const { return completed_at; }
         
         date get_start_time() const { return start_time; }
         date get_due_time() const { return due_time; }
