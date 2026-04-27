@@ -82,7 +82,6 @@ void Application::load_fonts() {
     
     // Clear any existing fonts to start fresh
     io.Fonts->Clear();
-
     float base_size = 18.0f * scale_factor;
     
     // 1. Setup Icon Config
@@ -141,12 +140,14 @@ void Application::run() {
         if (trigger_create_modal) { ImGui::OpenPopup("Create New Task"); trigger_create_modal = false; }
         if (trigger_delete_modal) { ImGui::OpenPopup("Delete Task?"); trigger_delete_modal = false; }
         if (trigger_subtask_warning) { ImGui::OpenPopup("Subtask Warning"); trigger_subtask_warning = false; }
+        if (trigger_edit_category_modal) { ImGui::OpenPopup("Edit Category"); trigger_edit_category_modal = false; }
 
         // 4. Draw the Modals (These only actually draw anything if OpenPopup was called above)
         draw_task_details_modal();
         draw_create_task_modal();
         draw_delete_confirmation();
         draw_subtask_warning_modal();
+        draw_edit_category_modal();
 
         // Rendering
         render_toasts();
@@ -259,13 +260,22 @@ void Application::draw_sidebar() {
     
         // Right-click to delete category
         if (ImGui::BeginPopupContextItem()) {
-            if (cat.id != 1) { // Prevent deleting "General"
+            if (cat.id != 1) { // Prevent editing/deleting General
+                // --- NEW: Edit Button ---
+                if (ImGui::MenuItem(ICON_FA_PEN " Edit Category")) {
+                    edit_category_id = cat.id;
+                    strncpy(edit_category_name, cat.name.c_str(), sizeof(edit_category_name) - 1);
+                    edit_category_color = hex_to_imvec4(cat.hex_color);
+                    trigger_edit_category_modal = true;
+                }
+                // --- Existing: Delete Button ---
                 if (ImGui::MenuItem(ICON_FA_TRASH_CAN " Delete Category")) {
                     db.delete_category(cat.id);
                     filter_category_id = -1;
                 }
-            } else {
-                ImGui::TextDisabled("Cannot delete General");
+            } 
+            else {
+                ImGui::TextDisabled("Cannot modify General");
             }
             ImGui::EndPopup();
         }
@@ -755,3 +765,37 @@ void Application::render_toasts() {
         [](const Toast& t) { return t.timer <= 0; }), toasts.end());
 }
 
+void Application::draw_edit_category_modal() {
+    if (ImGui::BeginPopupModal("Edit Category", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        
+        ImGui::InputText("Category Name", edit_category_name, 32);
+        ImGui::ColorEdit4("Color", (float*)&edit_category_color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+        
+        ImGui::Separator();
+
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        
+        // Disable save button if name is empty
+        bool can_save = strlen(edit_category_name) > 0;
+        if (!can_save) ImGui::BeginDisabled();
+        
+        if (ImGui::Button("Save Changes", ImVec2(120, 0))) {
+            // Convert ImVec4 back to Hex string
+            char hex[8];
+            snprintf(hex, sizeof(hex), "#%02X%02X%02X", 
+                     (int)(edit_category_color.x * 255), 
+                     (int)(edit_category_color.y * 255), 
+                     (int)(edit_category_color.z * 255));
+            
+            db.edit_category(edit_category_id, std::string(edit_category_name), hex);
+            ImGui::CloseCurrentPopup();
+        }
+        
+        if (!can_save) ImGui::EndDisabled();
+
+        ImGui::EndPopup();
+    }
+}

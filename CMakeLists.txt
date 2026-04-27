@@ -25,6 +25,8 @@ set(IMGUI_FILES
 )
 
 add_executable(program ${SRC_FILES} ${IMGUI_FILES})
+# This forces MinGW to bundle the required C++ files into your .exe
+set_target_properties(program PROPERTIES LINK_FLAGS "-static -static-libgcc -static-libstdc++")
 
 # Force the executable to the project root
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})

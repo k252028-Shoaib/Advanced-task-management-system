@@ -52,6 +52,7 @@ public:
     void add_category(std::string name, std::string color);
     void delete_category(int id);
     const std::vector<category>& get_categories() const { return categories_arr; }
+    void edit_category(int id, std::string new_name, std::string new_color);
 
     void save_to_file();
     void load_from_file();

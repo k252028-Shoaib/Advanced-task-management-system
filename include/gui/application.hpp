@@ -44,6 +44,7 @@ private:
     void draw_subtask_warning_modal();
     void draw_delete_confirmation();
     void draw_auto_complete_modal();
+    void draw_edit_category_modal();
     void add_toast(std::string msg) { toasts.push_back({msg, 3.0f}); }
 
     // --- Helpers ---
@@ -75,6 +76,10 @@ private:
     bool trigger_details_modal = false;
     bool trigger_subtask_warning = false;
     bool trigger_delete_modal = false;
+    bool trigger_edit_category_modal = false;
+    int edit_category_id = -1;
+    char edit_category_name[32] = "";
+    ImVec4 edit_category_color = ImVec4(1, 1, 1, 1);
 
     // --- Filter Logic ---
     enum class FilterType { ALL, OVERDUE, TODAY, UPCOMING, COMPLETED };

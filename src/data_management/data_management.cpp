@@ -95,10 +95,17 @@ void data_management::delete_category(int id) {
         }
     }
 }
-
+void data_management::edit_category(int id, std::string new_name, std::string new_color) {
+    for (auto& cat : categories_arr) {
+        if (cat.id == id) {
+            cat.name = new_name;
+            cat.hex_color = new_color;
+            return; // Done!
+        }
+    }
+}
 
 //Filing:
-
 
 void data_management::save_to_file() {
     std::filesystem::path db_path = std::filesystem::current_path() / "database.txt";
