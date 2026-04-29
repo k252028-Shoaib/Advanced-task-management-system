@@ -27,19 +27,17 @@ bool is_valid_date(int d, int m, int y) {
 }
 
 Application::Application() {
-#ifdef _WIN32
-    // Tells Windows 11 to let us handle scaling (prevents blur)
-    SetProcessDPIAware(); 
-#endif
+    #ifdef _WIN32
+        // Tells Windows 11 to let us handle scaling (prevents blur)
+        SetProcessDPIAware(); 
+    #endif
 
-    if (!init_window()) throw std::runtime_error("GLFW Init Failed");
-    init_imgui();
-    load_fonts();
-    db.load_from_file();
+        if (!init_window()) throw std::runtime_error("GLFW Init Failed");
+        init_imgui();
+        load_fonts();
 }
 
 Application::~Application() {
-    db.save_to_file();
     cleanup();
 }
 
