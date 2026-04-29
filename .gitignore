@@ -3,3 +3,5 @@
 /include/cli_input
 /src/gui/cli_input.cpp
 /Report.docx
+datebase.txt
+imgui.ini
