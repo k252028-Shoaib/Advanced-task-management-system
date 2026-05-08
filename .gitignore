@@ -2,6 +2,6 @@
 /build
 /include/cli_input
 /src/gui/cli_input.cpp
-/Report.docx
-datebase.txt
+Report.docx
+database.txt
 imgui.ini
