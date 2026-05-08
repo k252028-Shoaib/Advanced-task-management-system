@@ -6,6 +6,8 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include "task_structure/subtask.hpp"
+#define STB_IMAGE_IMPLEMENTATION
+#include "gui/stb_image.h"
 
 // Required for DPI Awareness on Windows
 #ifdef _WIN32
@@ -58,6 +60,17 @@ bool Application::init_window() {
     float xscale, yscale;
     glfwGetWindowContentScale(window, &xscale, &yscale);
     scale_factor = xscale; 
+
+    // --- Set the Window Logo (Taskbar Icon) ---
+    GLFWimage images[1];
+    images[0].pixels = stbi_load("assets/logo.png", &images[0].width, &images[0].height, 0, 4); // 4 means RGBA (with transparency)
+    
+    if (images[0].pixels) {
+        glfwSetWindowIcon(window, 1, images); // Tell GLFW to use this image!
+        stbi_image_free(images[0].pixels);    // Free the memory since GLFW copied it
+    } else {
+        std::cout << "Warning: Could not load logo.png from assets folder.\n";
+    }
 
     return true;
 }
